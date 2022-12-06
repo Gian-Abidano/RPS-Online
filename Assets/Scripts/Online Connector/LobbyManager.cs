@@ -39,7 +39,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         }
         RoomOptions roomOptions = new RoomOptions();
         roomOptions.MaxPlayers = 2;
-        PhotonNetwork.CreateRoom(newRoomInputField.text);
+        PhotonNetwork.CreateRoom(newRoomInputField.text, roomOptions);
     }
 
     public void ClickStartGame(string levelName)
@@ -169,6 +169,11 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     public override void OnRoomListUpdate(List<RoomInfo> roomList)
     {
+        foreach (var roomInfo in roomList)
+        {
+            roomInfoCache[roomInfo.Name] = roomInfo;
+        }
+        
         Debug.Log("Room List Updated");
 
         foreach (var item in this.roomItemList)
@@ -178,8 +183,27 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
         this.roomItemList.Clear();
 
-        foreach (var roomInfo in roomList)
+        var roomInfoList = new List<RoomInfo>(roomInfoCache.Count);
+
+        // Sort yang open dibuat pertama
+        foreach (var roomInfo in roomInfoCache.Values)
         {
+            if (roomInfo.IsOpen)
+                roomInfoList.Add(roomInfo);
+        }
+
+        // kemudian yang close
+        foreach (var roomInfo in roomInfoCache.Values)
+        {
+            if (roomInfo.IsOpen == false)
+                roomInfoList.Add(roomInfo);
+        }
+
+        foreach (var roomInfo in roomInfoList)
+        {
+            if (roomInfo.MaxPlayers == 0 || roomInfo.IsVisible == false)
+                continue;
+
             RoomItem newRoomItem = Instantiate(roomItemPrefab, roomListObject.transform);
             newRoomItem.Set(this, roomInfo);
             this.roomItemList.Add(newRoomItem);

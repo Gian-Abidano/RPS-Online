@@ -4,19 +4,29 @@ using TMPro;
 using Photon.Pun;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Photon.Realtime;
+using ExitGames.Client.Photon;
 
-public class CardGameManager : MonoBehaviour
+public class CardGameManager : MonoBehaviour, IOnEventCallback
 {
-    public GameState State = GameState.ChooseAttackState;
+    public GameState State, NextState = GameState.ChooseAttackState;
     public GameObject netPlayerPrefab;
     public CardPlayer Player1;
     public CardPlayer Player2;
+    public float restoreValue = 5;
+    public float damageValue = 10;
     private CardPlayer damagedPlayer;
     public GameObject gameOverPanel;
     public TMP_Text winnerText;
+    public TMP_Text pingText;
+    public bool Online = true;
+
+    // public List <int> syncReadyPlayers = new List<int>(2);
+    HashSet<int> syncReadyPlayers= new HashSet<int>();
     
     public enum GameState
     {
+        SyncState,
         NetPlayersInitialization,
         ChooseAttackState,
         AttackingState,
@@ -28,9 +38,27 @@ public class CardGameManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Debug.Log(State);
-        gameOverPanel.SetActive(false);
-        PhotonNetwork.Instantiate(netPlayerPrefab.name, Vector3.zero, Quaternion.identity);
+        if(Online)
+        {
+            gameOverPanel.SetActive(false);
+            PhotonNetwork.Instantiate(netPlayerPrefab.name, Vector3.zero, Quaternion.identity);
+            StartCoroutine(PingCoroutine());
+            State = GameState.NetPlayersInitialization;
+            NextState = GameState.NetPlayersInitialization;
+        }
+        else
+        {
+            State = GameState.ChooseAttackState;
+        }
+        // Debug.Log(State);
+    }
+
+    IEnumerator PingCoroutine() {
+        var wait = new WaitForSeconds(0.5f);
+        while(true) {
+            pingText.text = "Ping : " + PhotonNetwork.GetPing() + " ms";
+            yield return wait;   
+        }
     }
 
     // Update is called once per frame
@@ -38,6 +66,14 @@ public class CardGameManager : MonoBehaviour
     {
         switch (State)
         {
+            case GameState.SyncState:
+                if(syncReadyPlayers.Count == 2) 
+                {
+                    syncReadyPlayers.Clear();
+                    State = NextState;
+                }
+                break;
+            
             case GameState.NetPlayersInitialization:
                 if(CardNetPlayer.NetPlayers.Count == 2)
                 {
@@ -48,8 +84,10 @@ public class CardGameManager : MonoBehaviour
                         else
                             netPlayer.Set(Player2);
                     }
+                    ChangeState(GameState.ChooseAttackState);
                 }
                 break;
+            
             case GameState.ChooseAttackState:
                 if(Player1.AttackValue != null && Player2.AttackValue != null)
                 {
@@ -57,7 +95,7 @@ public class CardGameManager : MonoBehaviour
                     Player2.AnimateAttack();
                     Player1.isClickable(false);
                     Player2.isClickable(false);
-                    State = GameState.AttackingState;
+                    ChangeState(GameState.AttackingState);
                 }
                 break;
 
@@ -68,13 +106,13 @@ public class CardGameManager : MonoBehaviour
                     if(damagedPlayer != null)
                     {
                         damagedPlayer.DamageAnimation();
-                        State = GameState.SuccessAttackState;
+                        ChangeState(GameState.SuccessAttackState);
                     }
                     else
                     {
                         Player1.DrawAnimation();
                         Player2.DrawAnimation();
-                        State = GameState.DrawState;
+                        ChangeState(GameState.DrawState);
                     }
                 }
                 break;
@@ -84,13 +122,13 @@ public class CardGameManager : MonoBehaviour
                 {
                     if(damagedPlayer == Player1)
                     {
-                        Player1.ChangingHealth(-10);
-                        Player2.ChangingHealth(5);
+                        Player1.ChangingHealth(-damageValue);
+                        Player2.ChangingHealth(restoreValue);
                     }
                     else
                     {
-                        Player2.ChangingHealth(-10);
-                        Player1.ChangingHealth(5);
+                        Player2.ChangingHealth(-damageValue);
+                        Player1.ChangingHealth(restoreValue);
                     }
                 
 
@@ -101,14 +139,15 @@ public class CardGameManager : MonoBehaviour
                         ResetPlayers();
                         Player1.isClickable(true);
                         Player2.isClickable(true);
-                        State = GameState.ChooseAttackState;
+                        ChangeState(GameState.ChooseAttackState);
                     }
                     else
                     {
                         gameOverPanel.SetActive(true);
-                        winnerText.text = winner == Player1 ? "You Win" : "Player 2 Win";
+                        winnerText.text = winner == Player1 ?
+                             $"{Player1.NickName.text} Wins" : $"{Player2.NickName.text} Wins";
                         Debug.Log("The Winner is" + winner);
-                        State = GameState.GameOver;
+                        ChangeState(GameState.GameOver);
                         
                     }
                 }
@@ -120,21 +159,64 @@ public class CardGameManager : MonoBehaviour
                     ResetPlayers();
                     Player1.isClickable(true);
                     Player2.isClickable(true);
-                    State = GameState.ChooseAttackState;
+                    ChangeState(GameState.ChooseAttackState);
                 }
                 break;
 
         }
     }
 
-    // IEnumerator PingCoroutine()
-    // {
-    //     var wait = new WaitForSeconds(1);
-    //     if()
-    //     {
-            
-    //     }
-    // }
+    private void OnEnable()
+    {
+        PhotonNetwork.AddCallbackTarget(this);
+    }
+
+    
+    private void OnDisable()
+    {
+        PhotonNetwork.RemoveCallbackTarget(this);
+    }
+
+    private const byte playerChangeState=1;
+
+    private void ChangeState(GameState newState)
+    {
+        if(Online == false)
+        {
+            State = newState;
+            return;
+        }
+
+        if(this.NextState == newState)
+            return;
+        
+        //kirim message bahwa player ready
+        var actorNum = PhotonNetwork.LocalPlayer.ActorNumber;
+        var raiseEventOptions = new RaiseEventOptions();
+        raiseEventOptions.Receivers = ReceiverGroup.All;
+        PhotonNetwork.RaiseEvent(1, actorNum, raiseEventOptions, SendOptions.SendReliable);
+        
+        //masuk ke state sync sebagai transisi sebelum state baru
+        this.State =  GameState.SyncState;
+        this.NextState = newState;
+    }
+    
+    public void OnEvent(EventData photonEvent)
+    {
+        switch (photonEvent.Code)
+        {
+            case playerChangeState:
+                var actorNum = (int)photonEvent.CustomData;
+                
+                //kalau pake hashset ga perlu cek lagi
+                syncReadyPlayers.Add(actorNum);
+
+                break;
+
+            default:
+                break;
+        }
+    }
 
     private void ResetPlayers()
     {

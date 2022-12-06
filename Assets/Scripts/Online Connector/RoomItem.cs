@@ -16,12 +16,14 @@ public class RoomItem : MonoBehaviour
     {
         this.manager = manager;
         this.roomInfo = roomInfo;
-        roomNameText.text = roomInfo.Name;
+        roomNameText.text = roomInfo.Name + $"({roomInfo.PlayerCount}/{roomInfo.MaxPlayers})";
+        if (roomInfo.IsOpen == false)
+            button.interactable = false;
     }
 
     public void ClickRoomButton()
     {
-        manager.JoinRoom(roomNameText.text);
+        manager.JoinRoom(this.roomInfo.Name);
     }
 
 }

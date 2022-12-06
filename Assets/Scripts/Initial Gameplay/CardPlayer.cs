@@ -10,11 +10,19 @@ public class CardPlayer : MonoBehaviour
 {
     [SerializeField] Card chosenCard;
     public Transform attackPosReference;
+    public TMP_Text nameText;
     public TMP_Text healthText;
     public HealthBar healthBar;
     public float health;
     public float maxHealth;
     private Tweener animationTweener;
+    public TMP_Text NickName {get => nameText;}
+
+    private void Start()
+    {
+        health = maxHealth;
+    }
+
     public Attack? AttackValue 
     {
         get

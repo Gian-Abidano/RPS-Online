@@ -8,18 +8,28 @@ public class CardNetPlayer : MonoBehaviourPun
 {
     public static List<CardNetPlayer> NetPlayers = new List<CardNetPlayer>(2);
     private CardPlayer cardPlayer;
-
     private Card[] cards;
 
     public void Set(CardPlayer player)
     {
+        player.NickName.text = photonView.Owner.NickName;
         cardPlayer = player;
         cards = player.GetComponentsInChildren<Card>();
         foreach (var card in cards)
         {
             var button = card.GetComponent<Button>();
             button.onClick.AddListener(()=>RemoteClickButton(card.attackValue));
+            
+            if(photonView.IsMine==false) 
+            {
+                button.interactable=false;
+            }
         }
+    }
+
+    private void OnDestroy()
+    {
+        
     }
 
     private void RemoteClickButton(Attack value)
@@ -49,5 +59,10 @@ public class CardNetPlayer : MonoBehaviourPun
     private void OnDisable() 
     {
         NetPlayers.Remove(this);
+        foreach (var card in cards)
+        {
+            var button = card.GetComponent<Button>();
+            button.onClick.RemoveListener(()=>RemoteClickButton(card.attackValue));
+        }
     }
 }
