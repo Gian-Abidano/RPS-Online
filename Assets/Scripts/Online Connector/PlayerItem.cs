@@ -13,6 +13,10 @@ public class PlayerItem : MonoBehaviour
 
     public void Set(Photon.Realtime.Player player)
     {
+        if(player.CustomProperties.TryGetValue(PropertyNames.Player.AvatarIndex, out var value))
+        {
+            avatarImage.sprite = avatarSprites[(int)value];
+        }
         playerNameText.text = player.NickName;
 
         if(player == PhotonNetwork.MasterClient)

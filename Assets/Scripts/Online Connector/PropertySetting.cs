@@ -24,24 +24,25 @@ public class PropertySetting : MonoBehaviourPunCallbacks
         slider.wholeNumbers = wholeNumbers;
         inputField.contentType = wholeNumbers ? TMP_InputField.ContentType.IntegerNumber : TMP_InputField.ContentType.DecimalNumber;
 
-        if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(propertyKey, out var value)) {
+        if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(propertyKey, out var value))
+        {
             UpdateSliderInputField((float)value);
         }
-
-        //! kalau tidak masukan initial value dari inspector
-        else {
+        else
+        {
             UpdateSliderInputField(initialValue);
             SetCustomProperty(initialValue);
         }
 
-        //! ui hanya bisa di interactable oleh master saja
-        if (PhotonNetwork.IsMasterClient == false) {
+        if (PhotonNetwork.IsMasterClient == false)
+        {
             slider.interactable = false;
             inputField.interactable = false;
         }
     }
 
-    public void InputFromSlider(float value) {
+    public void InputFromSlider(float value)
+    {
         if (PhotonNetwork.IsMasterClient == false)
             return;
 
@@ -49,18 +50,21 @@ public class PropertySetting : MonoBehaviourPunCallbacks
         SetCustomProperty(value);
     }
 
-    public void InputFromField(string stringValue) {
+    public void InputFromField(string stringValue)
+    {
         if (PhotonNetwork.IsMasterClient == false)
             return;
 
-        if (float.TryParse(stringValue, out var floatValue)) {
+        if (float.TryParse(stringValue, out var floatValue))
+        {
             Mathf.Clamp(floatValue, slider.minValue, slider.maxValue);
             UpdateSliderInputField(floatValue);
             SetCustomProperty(floatValue);
         }
     }
 
-    private void UpdateSliderInputField(float value) {
+    private void UpdateSliderInputField(float value)
+    {
         var floatValue = (float)value;
         slider.value = floatValue;
         if (wholeNumbers)
@@ -69,7 +73,8 @@ public class PropertySetting : MonoBehaviourPunCallbacks
             inputField.text = floatValue.ToString("F2");
     }
 
-    private void SetCustomProperty(float value) {
+    private void SetCustomProperty(float value)
+    {
         if (!PhotonNetwork.IsMasterClient)
             return;
 
@@ -78,10 +83,21 @@ public class PropertySetting : MonoBehaviourPunCallbacks
         PhotonNetwork.CurrentRoom.SetCustomProperties(property);
     }
 
-    public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged) {
-        if (propertiesThatChanged.TryGetValue(propertyKey, out var value) && PhotonNetwork.IsMasterClient == false) {
-            Debug.Log("OnRoomPropertiesUpdate");
+    public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged)
+    {
+        if (propertiesThatChanged.TryGetValue(propertyKey, out var value) && PhotonNetwork.IsMasterClient == false)
+        {
             UpdateSliderInputField((float)value);
+            Debug.Log("On Room Properties Updated");
+        }
+    }
+
+    public override void OnMasterClientSwitched(Photon.Realtime.Player newMasterClient)
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            slider.interactable = true;
+            inputField.interactable = true;
         }
     }
 }
