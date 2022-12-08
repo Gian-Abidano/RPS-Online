@@ -1282,7 +1282,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 223401612}
         m_TargetAssemblyTypeName: GamePlayNetworkManager, Assembly-CSharp
-        m_MethodName: Replay
+        m_MethodName: BackToLobby
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
